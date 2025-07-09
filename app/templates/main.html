@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高数帮 - AI辅助学习平台</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- 导航栏 -->
+        <nav class="navbar">
+            <div class="logo">高数帮</div>
+            
+            <div class="role-selector">
+                <button class="role-btn active" id="teacherBtn">我是教师</button>
+                <button class="role-btn" id="studentBtn">我是学生</button>
+            </div>
+            
+            <div class="user-info">
+                <i class="fas fa-user-circle"></i>
+                <span id="usernameDisplay">张老师</span>
+                <button class="logout-btn" id="logoutBtn">
+                    <i class="fas fa-sign-out-alt"></i>退出
+                </button>
+            </div>
+        </nav>
+        
+        <!-- 主内容区 -->
+        <div class="main-content">
+            <!-- 左侧边栏 -->
+            <div class="sidebar">
+                <!-- 功能区 -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <i class="fas fa-th-list"></i>功能选择
+                    </div>
+                    <div class="panel-body">
+                        <ul class="function-list" id="functionList">
+                            <!-- 教师功能 -->
+                            <li class="function-item">
+                                <i class="fas fa-question-circle"></i>智能出题
+                            </li>
+                            <li class="function-item">
+                                <i class="fas fa-check-double"></i>辅助批卷
+                            </li>
+                            <li class="function-item">
+                                <i class="fas fa-chart-line"></i>教学分析
+                            </li>
+                            <li class="function-item">
+                                <i class="fas fa-book"></i>课程管理
+                            </li>
+                            <li class="function-item">
+                                <i class="fas fa-users"></i>学生管理
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- 历史记录 -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <i class="fas fa-history"></i>历史记录
+                    </div>
+                    <div class="panel-body">
+                        <ul class="history-list" id="historyList">
+                            <!-- 历史记录将通过JS动态加载 -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 右侧工作区 -->
+            <div class="workspace">
+                <div class="chat-header">
+                    <i class="fas fa-robot"></i> AI 智能助手
+                    <div class="ai-status">
+                        <span class="status-dot online"></span>
+                        <span>在线</span>
+                    </div>
+                </div>
+                
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message ai-message">
+                        <div class="message-header">
+                            <i class="fas fa-robot"></i>高数帮AI
+                        </div>
+                        <div>您好！我是高数帮AI助手，可以为您解答高等数学相关问题、生成练习题、分析学习情况等。请问有什么可以帮您的？</div>
+                    </div>
+                </div>
+                
+                <div class="chat-input">
+                    <div class="input-tools">
+                        <button class="tool-btn" title="插入公式"><i class="fas fa-square-root-alt"></i></button>
+                        <button class="tool-btn" title="插入图表"><i class="fas fa-chart-bar"></i></button>
+                        <button class="tool-btn" title="清除内容"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                    <textarea id="messageInput" placeholder="输入您的高等数学问题...（支持LaTeX公式输入）"></textarea>
+                    <button class="send-btn" id="sendBtn">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>
