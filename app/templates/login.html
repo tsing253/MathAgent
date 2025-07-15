@@ -25,12 +25,18 @@
                 {% csrf_token %}
                 <div class="input-group">
                     <label for="username">用户名</label>
-                    <input type="text" id="username" name="username" placeholder="请输入用户名"> 
+                    <input type="text" id="username" name="username" placeholder="请输入用户名" {% if error %}class="input-error"{% endif %}> 
                 </div>
                 
                 <div class="input-group">
                     <label for="password">密码</label>
-                    <input type="password" id="password" name="password" placeholder="请输入密码"> 
+                    <input type="password" id="password" name="password" placeholder="请输入密码" {% if error %}class="input-error"{% endif %}> 
+                    {% if error %}
+                    <div class="error-message">
+                        <i class="fas fa-exclamation-circle"></i>
+                        {{ error }}
+                    </div>
+                    {% endif %}
                 </div>
                 
                 <button type="submit" class="login-btn" id="loginBtn">登录</button>

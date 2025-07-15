@@ -38,6 +38,42 @@ body {
     overflow: hidden;
 }
 
+/* 错误消息样式 */
+.error-message {
+    color: #dc3545;
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    animation: fadeIn 0.3s ease-in-out;
+    background-color: rgba(220, 53, 69, 0.1);
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+    border-left: 3px solid #dc3545;
+}
+
+.error-message i {
+    font-size: 1rem;
+    color: #dc3545;
+}
+
+.input-error {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 /* 登录页面样式 */
 .login-page {
     display: flex;
@@ -121,6 +157,11 @@ body {
     margin-bottom: 0.5rem;
     font-weight: 500;
     color: var(--dark);
+    transition: var(--transition);
+}
+
+.input-group:has(.input-error) label {
+    color: #dc3545;
 }
 
 .input-group input {

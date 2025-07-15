@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const registerLink = document.getElementById('registerLink');
     const forgotPassword = document.getElementById('forgotPassword');
 
-    // // 表单提交事件
+    // 表单提交事件
     loginForm.addEventListener('submit', function(e) {
         const username = usernameInput.value.trim();
         const password = passwordInput.value.trim();

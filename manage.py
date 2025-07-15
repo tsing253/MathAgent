@@ -3,7 +3,7 @@
 import os
 import sys
 
-# conda run --live-stream --name base python d:/Code/math/myproject/manage.py
+# conda run --live-stream --name base python d:/Code/math/myproject/manage.py runserver
 
 def main():
     """Run administrative tasks."""
