@@ -35,16 +35,80 @@ document.addEventListener('DOMContentLoaded', function() {
         {icon: 'fas fa-users', name: '学生管理'}
     ];
     
-    // 历史记录数据
-    const historyData = [
-        {title: '多元函数微分学练习题', date: '2023年11月15日 14:30'},
-        {title: '定积分应用教学分析', date: '2023年11月14日 10:15'},
-        {title: '微分方程批改报告', date: '2023年11月12日 16:45'},
-        {title: '空间解析几何题库', date: '2023年11月10日 09:20'},
-        {title: '极限与连续性测试题', date: '2023年11月8日 15:30'},
-        {title: '导数应用课堂练习', date: '2023年11月5日 11:20'},
-        {title: '向量代数复习材料', date: '2023年11月3日 14:00'}
-    ];
+    // 加载会话内容的函数
+    async function loadConversation(conversationId) {
+        try {
+            // 显示加载中状态
+            chatMessages.innerHTML = `
+                <div class="loading">
+                    <span>加载中</span>
+                    <div class="loading-dots">
+                        <div class="dot"></div>
+                        <div class="dot"></div>
+                        <div class="dot"></div>
+                    </div>
+                </div>
+            `;
+
+            const response = await fetch(`/conversation/${conversationId}/`);
+            if (!response.ok) {
+                throw new Error('加载失败');
+            }
+
+            const data = await response.json();
+            
+            // 清空聊天区域
+            chatMessages.innerHTML = '';
+            
+            // 添加所有对话内容
+            data.dialogues.forEach(dialogue => {
+                // 添加用户消息
+                chatMessages.innerHTML += `
+                    <div class="message user-message">
+                        <div class="message-header">
+                            <i class="fas fa-user"></i>我
+                        </div>
+                        <div>${dialogue.user_input}</div>
+                    </div>
+                `;
+                
+                // 添加AI响应
+                chatMessages.innerHTML += `
+                    <div class="message ai-message">
+                        <div class="message-header">
+                            <i class="fas fa-robot"></i>高数帮AI
+                        </div>
+                        <div>${dialogue.agent_output}</div>
+                    </div>
+                `;
+            });
+
+            // 滚动到底部
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+        } catch (error) {
+            chatMessages.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-circle"></i>
+                    加载会话内容失败，请重试
+                </div>
+            `;
+        }
+    }
+
+    // 处理历史会话点击
+    document.querySelectorAll('.history-item').forEach(item => {
+        if (!item.classList.contains('empty')) {
+            item.addEventListener('click', function() {
+                const conversationId = this.dataset.conversationId;
+                // 高亮当前选中的会话
+                document.querySelectorAll('.history-item').forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+                // 加载会话内容
+                loadConversation(conversationId);
+            });
+        }
+    });
     
     // 退出登录
     logoutBtn.addEventListener('click', function() {

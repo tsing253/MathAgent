@@ -20,9 +20,12 @@
                 <button class="role-btn" id="studentBtn">我是学生</button>
             </div>
             
-            <div class="user-info">
-                <i class="fas fa-user-circle"></i>
-                <span id="usernameDisplay">张老师</span>
+            <div class="nav-right">
+                <div class="user-info">
+                    <i class="fas fa-user-circle"></i>
+                    <span id="usernameDisplay">{{ request.session.username }}</span>
+                    <span class="user-role">({{ request.session.role }})</span>
+                </div>
                 <button class="logout-btn" id="logoutBtn">
                     <i class="fas fa-sign-out-alt"></i>退出
                 </button>
@@ -63,11 +66,27 @@
                 <!-- 历史记录 -->
                 <div class="panel">
                     <div class="panel-header">
-                        <i class="fas fa-history"></i>历史记录
+                        <i class="fas fa-history"></i>历史会话
                     </div>
                     <div class="panel-body">
-                        <ul class="history-list" id="historyList">
-                            <!-- 历史记录将通过JS动态加载 -->
+                        <ul class="history-list">
+                            {% for conversation in conversations %}
+                            <li class="history-item" data-conversation-id="{{ conversation.id }}">
+                                <div class="history-title">
+                                    <i class="fas fa-comments"></i>
+                                    {{ conversation.title }}
+                                </div>
+                                <div class="history-date">
+                                    <i class="far fa-clock"></i>
+                                    {{ conversation.updated_at|date:"Y-m-d H:i" }}
+                                </div>
+                            </li>
+                            {% empty %}
+                            <li class="history-item empty">
+                                <i class="fas fa-history" style="font-size: 2rem; margin-bottom: 1rem; color: var(--gray);"></i>
+                                <div class="history-title" style="justify-content: center">暂无历史会话</div>
+                            </li>
+                            {% endfor %}
                         </ul>
                     </div>
                 </div>
