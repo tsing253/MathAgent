@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from app.models import User
+from api.models import User
 
 class Command(BaseCommand):
     help = '创建示例用户数据'
