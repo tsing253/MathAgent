@@ -16,14 +16,9 @@ Including another URLconf
 """
 
 from django.contrib import admin
-from django.urls import path
-
-from app import views
+from django.urls import path, include
 
 urlpatterns = [
-    # path("admin/", admin.site.urls),
-    path("login/", views.login),
-    path("", views.login),
-    path("main/", views.main),
-    path("orm/", views.orm),
+    path('api/', include('api.urls')),     # 所有API端点
+    path('', include('app.urls')),    # 前端路由
 ]

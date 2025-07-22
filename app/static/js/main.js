@@ -11,11 +11,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const usernameDisplay = document.getElementById('usernameDisplay');
     
     // 从sessionStorage获取用户信息
-    const username = sessionStorage.getItem('username') || '用户';
+    const displayName = sessionStorage.getItem('name') || '用户';  // 使用name字段作为显示名
     const role = sessionStorage.getItem('role') || 'teacher';
     
     // 设置用户名显示
-    usernameDisplay.textContent = username;
+    usernameDisplay.textContent = displayName;
     
     // 学生功能列表
     const studentFunctions = [
@@ -113,8 +113,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 退出登录
     logoutBtn.addEventListener('click', function() {
         // 清除sessionStorage
-        sessionStorage.removeItem('username');
-        sessionStorage.removeItem('role');
+        sessionStorage.clear();  // 清除所有session数据
         
         // 跳转回登录页面
         window.location.href = '/login/';
@@ -151,22 +150,91 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // 加载历史记录
-    function loadHistory() {
-        historyList.innerHTML = '';
-        
-        historyData.forEach(item => {
-            const li = document.createElement('li');
-            li.className = 'history-item';
-            li.innerHTML = `
-                <div class="history-title">${item.title}</div>
-                <div class="history-date">${item.date}</div>
-            `;
-            historyList.appendChild(li);
-        });
+    async function loadHistory() {
+        try {
+            const response = await fetch('/get_conversations/');
+            if (!response.ok) {
+                throw new Error('获取历史记录失败');
+            }
+            
+            const data = await response.json();
+            historyList.innerHTML = '';
+            
+            if (data.conversations.length === 0) {
+                historyList.innerHTML = '<li class="history-item empty">暂无历史会话</li>';
+                return;
+            }
+            
+            data.conversations.forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'history-item';
+                li.dataset.conversationId = item.coze_conversation_id;
+                li.innerHTML = `
+                    <div class="history-title" title="双击编辑标题">${item.title}</div>
+                    <div class="history-date">${item.updated_at}</div>
+                `;
+                
+                // 双击编辑标题
+                const titleDiv = li.querySelector('.history-title');
+                titleDiv.addEventListener('dblclick', async function(e) {
+                    const currentTitle = this.textContent;
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.value = currentTitle;
+                    input.className = 'title-edit';
+                    
+                    this.replaceWith(input);
+                    input.focus();
+                    
+                    input.addEventListener('blur', async function() {
+                        const newTitle = this.value.trim();
+                        if (newTitle && newTitle !== currentTitle) {
+                            try {
+                                const response = await fetch(`/conversation/${item.id}/update_title/`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({ title: newTitle })
+                                });
+                                
+                                if (!response.ok) {
+                                    throw new Error('更新标题失败');
+                                }
+                                
+                                titleDiv.textContent = newTitle;
+                            } catch (error) {
+                                console.error('更新标题失败:', error);
+                                titleDiv.textContent = currentTitle;
+                            }
+                        } else {
+                            titleDiv.textContent = currentTitle;
+                        }
+                        this.replaceWith(titleDiv);
+                    });
+                    
+                    input.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter') {
+                            this.blur();
+                        } else if (e.key === 'Escape') {
+                            titleDiv.textContent = currentTitle;
+                            this.replaceWith(titleDiv);
+                        }
+                    });
+                });
+                
+                historyList.appendChild(li);
+            });
+        } catch (error) {
+            console.error('加载历史记录失败:', error);
+            historyList.innerHTML = '<li class="history-item error">加载历史记录失败</li>';
+        }
     }
+    // 当前会话ID
+    let currentConversationId = null;
     
-    // 发送消息
-    function sendMessage() {
+    // 发送消息到后端API
+    async function sendMessage() {
         const message = messageInput.value.trim();
         if (!message) return;
         
@@ -188,96 +256,127 @@ document.addEventListener('DOMContentLoaded', function() {
         chatMessages.appendChild(loading);
         chatMessages.scrollTop = chatMessages.scrollHeight;
         
-        // 模拟AI响应
-        setTimeout(() => {
-            chatMessages.removeChild(loading);
-            let response = '';
+        try {
+            // 发送请求到后端API
+            const response = await fetch('/api/chat/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken') // 获取CSRF token
+                },
+                body: JSON.stringify({
+                    message: message,
+                    conversation_id: currentConversationId // 如果有当前会话ID则传递
+                })
+            });
             
-            if (message.includes('导数') || message.includes('微分')) {
-                response = `关于导数/微分的问题，我为您提供以下解答：
-                <div class="math-formula">
-                    导数定义：函数 \( f(x) \) 在点 \( x_0 \) 处的导数定义为：
-                    \[ f'(x_0) = \lim_{\Delta x \to 0} \frac{f(x_0 + \Delta x) - f(x_0)}{\Delta x} \]
-                </div>
-                <div class="math-formula">
-                    基本导数公式：
-                    <ul>
-                        <li>\( (x^n)' = nx^{n-1} \)</li>
-                        <li>\( (\sin x)' = \cos x \)</li>
-                        <li>\( (e^x)' = e^x \)</li>
-                        <li>\( (\ln x)' = \frac{1}{x} \)</li>
-                    </ul>
-                </div>
-                如果您有具体问题，可以进一步描述，我会为您详细解答。`;
-            } else if (message.includes('积分')) {
-                response = `关于积分的问题，以下是一些基本概念：
-                <div class="math-formula">
-                    不定积分：若 \( F'(x) = f(x) \)，则 \( \int f(x) \, dx = F(x) + C \)
-                </div>
-                <div class="math-formula">
-                    定积分：\( \int_a^b f(x) \, dx = F(b) - F(a) \)
-                </div>
-                <div class="math-formula">
-                    常见积分公式：
-                    <ul>
-                        <li>\( \int x^n \, dx = \frac{x^{n+1}}{n+1} + C \) (n ≠ -1)</li>
-                        <li>\( \int \frac{1}{x} \, dx = \ln|x| + C \)</li>
-                        <li>\( \int e^x \, dx = e^x + C \)</li>
-                        <li>\( \int \cos x \, dx = \sin x + C \)</li>
-                    </ul>
-                </div>`;
-            } else if (message.includes('练习题') || message.includes('题目')) {
-                response = `好的，以下是5道高等数学练习题：
-                <div class="math-formula">
-                    1. 求函数 \( f(x) = x^3 - 3x^2 + 2 \) 的极值点和拐点。
-                </div>
-                <div class="math-formula">
-                    2. 计算积分：\( \int_0^{\pi/2} \sin^3 x \, dx \)
-                </div>
-                <div class="math-formula">
-                    3. 求微分方程 \( y'' - 4y' + 4y = e^{2x} \) 的通解。
-                </div>
-                <div class="math-formula">
-                    4. 设向量 \( \vec{a} = (1, 2, 3) \), \( \vec{b} = (2, -1, 0) \)，求 \( \vec{a} \times \vec{b} \)。
-                </div>
-                <div class="math-formula">
-                    5. 求曲面 \( z = x^2 + y^2 \) 在点 (1, 1, 2) 处的切平面方程。
-                </div>`;
-            } else if (message.includes('帮助') || message.includes('功能')) {
-                response = `我是高数帮AI助手，可以为您提供以下帮助：
-                <div class="math-formula">
-                    <strong>主要功能：</strong>
-                    <ul>
-                        <li>解答高等数学问题（微积分、线性代数、概率统计等）</li>
-                        <li>生成练习题和模拟试卷</li>
-                        <li>提供分步解题过程和答案解析</li>
-                        <li>分析学习进度和薄弱环节</li>
-                        <li>批改作业和试卷</li>
-                    </ul>
-                </div>
-                <div class="math-formula">
-                    <strong>使用示例：</strong>
-                    <ul>
-                        <li>"解释洛必达法则"</li>
-                        <li>"求函数 f(x)=x^2+2x 的导数"</li>
-                        <li>"生成3道定积分练习题"</li>
-                        <li>"帮我分析最近的学习情况"</li>
-                    </ul>
-                </div>`;
-            } else {
-                response = `我已收到您的查询："${message}"。作为高数帮AI，我可以：
-                <ul>
-                    <li>解答高等数学问题</li>
-                    <li>生成练习题和试卷</li>
-                    <li>分析学习进度和薄弱点</li>
-                    <li>提供分步解题过程</li>
-                    <li>解释数学概念和定理</li>
-                </ul>
-                请具体描述您的问题，我会尽力为您提供帮助。`;
+            if (!response.ok) {
+                throw new Error('请求失败，状态码: ' + response.status);
             }
             
-            addMessage(response, 'ai');
-        }, 1500 + Math.random() * 1000);
+            // 移除加载动画
+            chatMessages.removeChild(loading);
+            
+            // 处理流式响应
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let aiMessage = '';
+            let isFirstChunk = true;
+            
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                
+                const chunk = decoder.decode(value, { stream: true });
+                aiMessage += chunk;
+                
+                // 更新AI消息显示
+                if (isFirstChunk) {
+                    addMessage(aiMessage, 'ai');
+                    isFirstChunk = false;
+                } else {
+                    // 更新最后一个AI消息
+                    const aiMessages = document.querySelectorAll('.ai-message');
+                    const lastAiMessage = aiMessages[aiMessages.length - 1];
+                    if (lastAiMessage) {
+                        lastAiMessage.querySelector('div:last-child').innerHTML = aiMessage;
+                    }
+                }
+                
+                // 滚动到底部
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                
+                // 重新渲染数学公式
+                if (typeof MathJax !== 'undefined') {
+                    MathJax.typeset();
+                }
+            }
+            
+            // 从响应头获取会话ID
+            const newConversationId = response.headers.get('X-Conversation-ID');
+            if (newConversationId) {
+                currentConversationId = newConversationId;
+                
+                // 如果是新会话，添加到历史记录
+                if (isFirstChunk) {
+                    addNewConversationToHistory(newConversationId, message);
+                }
+            }
+            
+        } catch (error) {
+            console.error('发送消息失败:', error);
+            chatMessages.removeChild(loading);
+            addMessage(`请求失败: ${error.message}`, 'ai');
+        }
+    }
+    
+    // 添加新会话到历史记录
+    function addNewConversationToHistory(conversationId, firstMessage) {
+        const now = new Date();
+        const formattedDate = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+        
+        // 创建标题（截取前20个字符）
+        const title = firstMessage.length > 20 ? firstMessage.substring(0, 20) + '...' : firstMessage;
+        
+        const li = document.createElement('li');
+        li.className = 'history-item active';
+        li.dataset.conversationId = conversationId;
+        li.innerHTML = `
+            <div class="history-title" title="双击编辑标题">${title}</div>
+            <div class="history-date">${formattedDate}</div>
+        `;
+        
+        // 添加点击事件
+        li.addEventListener('click', function() {
+            document.querySelectorAll('.history-item').forEach(i => i.classList.remove('active'));
+            this.classList.add('active');
+            loadConversation(conversationId);
+        });
+        
+        // 添加到历史记录顶部
+        if (historyList.querySelector('.empty')) {
+            historyList.innerHTML = '';
+        }
+        historyList.insertBefore(li, historyList.firstChild);
+        
+        // 更新当前会话ID
+        currentConversationId = conversationId;
+    }
+    
+    // 获取CSRF token的函数
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
     }
     
     // 添加消息到聊天区域
@@ -288,7 +387,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (sender === 'user') {
             messageDiv.innerHTML = `
                 <div class="message-header">
-                    <i class="fas fa-user"></i>${username}
+                    <i class="fas fa-user"></i>${displayName}
                 </div>
                 <div>${content}</div>
             `;
@@ -335,7 +434,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 添加欢迎消息
         setTimeout(() => {
-            addMessage(`欢迎回来，${username}${role === 'teacher' ? '老师' : '同学'}！今天想学习什么内容？`, 'ai');
+            addMessage(`欢迎回来，${displayName}${role === 'teacher' ? '老师' : '同学'}！今天想学习什么内容？`, 'ai');
         }, 500);
     }
     

@@ -38,7 +38,9 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "app"
+    "app",
+    'drf_spectacular',  # 使用 drf-spectacular
+    "api",
 ]
 
 MIDDLEWARE = [
@@ -76,11 +78,14 @@ WSGI_APPLICATION = "myproject.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
+        "ENGINE": 'django.db.backends.mysql',
+        "NAME": 'math_agent',
+        "USER": 'root',
+        "PASSWORD": '123456',
+        "HOST": 'localhost',
+        "PORT": '3306',
+    },
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -123,14 +128,15 @@ STATIC_URL = "static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-
-DATABASES = {
-    "default": {
-        "ENGINE": 'django.db.backends.mysql',
-        "NAME": 'math_agent',
-        "USER": 'root',
-        "PASSWORD": '123456',
-        "HOST": 'localhost',
-        "PORT": '3306',
-    },
+# Configure Django REST Framework and drf-spectacular for API documentation
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Your API Documentation',
+    'DESCRIPTION': 'API 接口文档',
+    'VERSION': '1.0.0',
+}
+
+
