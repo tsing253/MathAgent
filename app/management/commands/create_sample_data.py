@@ -10,14 +10,14 @@ class Command(BaseCommand):
             id=1,
             username='admin',
             password='admin',
-            name='',
-            role='管理员'
+            name='管理员',
+            role='admin'
         )
         self.stdout.write(self.style.SUCCESS('成功创建管理员用户'))
 
         # 创建学生用户
         User.objects.create(
-            id=5,
+            id=2,
             username='student1',
             password='123456',
             name='张三',
@@ -27,7 +27,7 @@ class Command(BaseCommand):
 
         # 创建教师用户
         User.objects.create(
-            id=6,
+            id=3,
             username='teacher1',
             password='123456',
             name='李老师',

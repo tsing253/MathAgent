@@ -6,6 +6,8 @@ import os
 
 # Create your views here.
 
+load_dotenv(".env")
+
 def login(request):
     if request.method == "GET":
         return render(request, "login.html")
@@ -32,7 +34,7 @@ def login(request):
 def main(request):
     # 调用API创建会话并记录conversation_id
     # 加载环境变量
-    load_dotenv(".env")
+
     token = f"Bearer {os.getenv('COZE_API_TOKEN', '')}"
     botid = os.getenv("BOTID")
     if not botid or not token:
