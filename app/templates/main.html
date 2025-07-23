@@ -70,7 +70,7 @@
                     </div>
                     <div class="panel-body">
                         <ul class="history-list">
-                            {% for conversation in conversations %}
+                            {% for conversation in request.session.conversations %}
                             <li class="history-item" data-conversation-id="{{ conversation.id }}">
                                 <div class="history-title">
                                     <i class="fas fa-comments"></i>
@@ -78,7 +78,7 @@
                                 </div>
                                 <div class="history-date">
                                     <i class="far fa-clock"></i>
-                                    {{ conversation.updated_at|date:"Y-m-d H:i" }}
+                                    {{ conversation.created_at|date:"Y-m-d H:i" }}
                                 </div>
                             </li>
                             {% empty %}

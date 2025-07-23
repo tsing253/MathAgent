@@ -25,5 +25,6 @@ urlpatterns = [
     path("login/", frontend_views.login),
     path("", frontend_views.login),
     path("main/", frontend_views.main),
-    path("orm/", frontend_views.orm),
+    path('save-conversation/', frontend_views.save_conversation, name='save_conversation'),
+    path('coze-proxy/', frontend_views.coze_proxy, name='coze_proxy'),
 ]

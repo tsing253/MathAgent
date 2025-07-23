@@ -1,4 +1,8 @@
 document.addEventListener('DOMContentLoaded', function() {
+    // 从 sessionStorage 获取用户名和角色
+    const username = sessionStorage.getItem('username') || '用户';
+    const role = sessionStorage.getItem('role') || 'student';
+
     // 获取页面元素
     const logoutBtn = document.getElementById('logoutBtn');
     const teacherBtn = document.getElementById('teacherBtn');
@@ -27,6 +31,17 @@ document.addEventListener('DOMContentLoaded', function() {
         {icon: 'fas fa-book', name: '课程管理'},
         {icon: 'fas fa-users', name: '学生管理'}
     ];
+
+    // 获取CSRF token的函数
+    function getCSRFToken() {
+        const cookieValue = document.cookie
+            .split('; ')
+            .find(row => row.startsWith('csrftoken='))
+            ?.split('=')[1];
+        
+        if (cookieValue) return cookieValue;
+        return document.querySelector('meta[name="csrf-token"]')?.content;
+    }
     
     // 加载会话内容的函数
     async function loadConversation(conversationId) {
@@ -158,8 +173,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // 发送消息
-    function sendMessage() {
+    // 发送消息 - 使用真实API
+    async function sendMessage() {
         const message = messageInput.value.trim();
         if (!message) return;
         
@@ -181,96 +196,79 @@ document.addEventListener('DOMContentLoaded', function() {
         chatMessages.appendChild(loading);
         chatMessages.scrollTop = chatMessages.scrollHeight;
         
-        // 模拟AI响应
-        setTimeout(() => {
-            chatMessages.removeChild(loading);
-            let response = '';
+        try {
+            // 创建AI消息容器
+            const aiMessageDiv = document.createElement('div');
+            aiMessageDiv.className = 'message ai-message';
+            aiMessageDiv.innerHTML = `
+                <div class="message-header">
+                    <i class="fas fa-robot"></i>高数帮AI
+                </div>
+                <div class="ai-content"></div>
+            `;
+            chatMessages.appendChild(aiMessageDiv);
+            const aiContent = aiMessageDiv.querySelector('.ai-content');
             
-            if (message.includes('导数') || message.includes('微分')) {
-                response = `关于导数/微分的问题，我为您提供以下解答：
-                <div class="math-formula">
-                    导数定义：函数 \( f(x) \) 在点 \( x_0 \) 处的导数定义为：
-                    \[ f'(x_0) = \lim_{\Delta x \to 0} \frac{f(x_0 + \Delta x) - f(x_0)}{\Delta x} \]
-                </div>
-                <div class="math-formula">
-                    基本导数公式：
-                    <ul>
-                        <li>\( (x^n)' = nx^{n-1} \)</li>
-                        <li>\( (\sin x)' = \cos x \)</li>
-                        <li>\( (e^x)' = e^x \)</li>
-                        <li>\( (\ln x)' = \frac{1}{x} \)</li>
-                    </ul>
-                </div>
-                如果您有具体问题，可以进一步描述，我会为您详细解答。`;
-            } else if (message.includes('积分')) {
-                response = `关于积分的问题，以下是一些基本概念：
-                <div class="math-formula">
-                    不定积分：若 \( F'(x) = f(x) \)，则 \( \int f(x) \, dx = F(x) + C \)
-                </div>
-                <div class="math-formula">
-                    定积分：\( \int_a^b f(x) \, dx = F(b) - F(a) \)
-                </div>
-                <div class="math-formula">
-                    常见积分公式：
-                    <ul>
-                        <li>\( \int x^n \, dx = \frac{x^{n+1}}{n+1} + C \) (n ≠ -1)</li>
-                        <li>\( \int \frac{1}{x} \, dx = \ln|x| + C \)</li>
-                        <li>\( \int e^x \, dx = e^x + C \)</li>
-                        <li>\( \int \cos x \, dx = \sin x + C \)</li>
-                    </ul>
-                </div>`;
-            } else if (message.includes('练习题') || message.includes('题目')) {
-                response = `好的，以下是5道高等数学练习题：
-                <div class="math-formula">
-                    1. 求函数 \( f(x) = x^3 - 3x^2 + 2 \) 的极值点和拐点。
-                </div>
-                <div class="math-formula">
-                    2. 计算积分：\( \int_0^{\pi/2} \sin^3 x \, dx \)
-                </div>
-                <div class="math-formula">
-                    3. 求微分方程 \( y'' - 4y' + 4y = e^{2x} \) 的通解。
-                </div>
-                <div class="math-formula">
-                    4. 设向量 \( \vec{a} = (1, 2, 3) \), \( \vec{b} = (2, -1, 0) \)，求 \( \vec{a} \times \vec{b} \)。
-                </div>
-                <div class="math-formula">
-                    5. 求曲面 \( z = x^2 + y^2 \) 在点 (1, 1, 2) 处的切平面方程。
-                </div>`;
-            } else if (message.includes('帮助') || message.includes('功能')) {
-                response = `我是高数帮AI助手，可以为您提供以下帮助：
-                <div class="math-formula">
-                    <strong>主要功能：</strong>
-                    <ul>
-                        <li>解答高等数学问题（微积分、线性代数、概率统计等）</li>
-                        <li>生成练习题和模拟试卷</li>
-                        <li>提供分步解题过程和答案解析</li>
-                        <li>分析学习进度和薄弱环节</li>
-                        <li>批改作业和试卷</li>
-                    </ul>
-                </div>
-                <div class="math-formula">
-                    <strong>使用示例：</strong>
-                    <ul>
-                        <li>"解释洛必达法则"</li>
-                        <li>"求函数 f(x)=x^2+2x 的导数"</li>
-                        <li>"生成3道定积分练习题"</li>
-                        <li>"帮我分析最近的学习情况"</li>
-                    </ul>
-                </div>`;
-            } else {
-                response = `我已收到您的查询："${message}"。作为高数帮AI，我可以：
-                <ul>
-                    <li>解答高等数学问题</li>
-                    <li>生成练习题和试卷</li>
-                    <li>分析学习进度和薄弱点</li>
-                    <li>提供分步解题过程</li>
-                    <li>解释数学概念和定理</li>
-                </ul>
-                请具体描述您的问题，我会尽力为您提供帮助。`;
+            // 移除加载动画
+            chatMessages.removeChild(loading);
+            
+            // 发送请求到代理API
+            const formData = new FormData();
+            formData.append('message', message);
+            
+            
+            // 获取CSRF token
+            const csrftoken = getCSRFToken();
+            
+            // 修改第一个POST请求（/coze-proxy/）
+            const response = await fetch('/coze-proxy/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrftoken  // 添加CSRF头
+                },
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error('API请求失败');
             }
             
-            addMessage(response, 'ai');
-        }, 1500 + Math.random() * 1000);
+            // 处理流式响应
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let aiResponse = '';
+            
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                
+                const chunk = decoder.decode(value, { stream: true });
+                aiResponse += chunk;
+                
+                // 更新AI消息内容
+                aiContent.innerHTML = aiResponse;
+                
+                // 滚动到底部
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+            
+            // 保存对话到后端
+            await fetch('/save-conversation/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken  // 添加CSRF头
+                },
+                body: JSON.stringify({
+                    user_input: message,
+                    agent_output: aiResponse
+                })
+            });
+                
+        } catch (error) {
+            chatMessages.removeChild(loading);
+            addMessage(`抱歉，请求出错: ${error.message}`, 'ai');
+        }
     }
     
     // 添加消息到聊天区域
