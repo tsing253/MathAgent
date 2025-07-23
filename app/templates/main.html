@@ -23,7 +23,7 @@
             <div class="nav-right">
                 <div class="user-info">
                     <i class="fas fa-user-circle"></i>
-                    <span id="usernameDisplay">{{ request.session.username }}</span>
+                    <span id = "usernameDisplay">{{ request.session.name }}</span>
                     <span class="user-role">({{ request.session.role }})</span>
                 </div>
                 <button class="logout-btn" id="logoutBtn">

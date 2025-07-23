@@ -10,13 +10,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const historyList = document.getElementById('historyList');
     const usernameDisplay = document.getElementById('usernameDisplay');
     
-    // 从sessionStorage获取用户信息
-    const username = sessionStorage.getItem('username') || '用户';
-    const role = sessionStorage.getItem('role') || 'teacher';
-    
-    // 设置用户名显示
-    usernameDisplay.textContent = username;
-    
     // 学生功能列表
     const studentFunctions = [
         {icon: 'fas fa-book', name: '平时练习'},

@@ -21,6 +21,7 @@ def login(request):
             if user.password == password:  # 注意：实际项目中应该使用加密密码
                 request.session['user_id'] = user.id
                 request.session['username'] = user.username
+                request.session['name'] = user.name
                 request.session['role'] = user.role
                 return redirect("/main/")
             else:
