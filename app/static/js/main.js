@@ -220,8 +220,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // 获取CSRF token
             const csrftoken = getCSRFToken();
             
-            // 修改第一个POST请求（/coze-proxy/）
-            const response = await fetch('/coze-proxy/', {
+            // 修改第一个POST请求（/api/coze-proxy/）
+            const response = await fetch('/api/coze-proxy/', {
                 method: 'POST',
                 headers: {
                     'X-CSRFToken': csrftoken  // 添加CSRF头
@@ -253,7 +253,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             // 保存对话到后端
-            await fetch('/save-conversation/', {
+            await fetch('/api/save-conversation/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
