@@ -260,8 +260,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     'X-CSRFToken': csrftoken  // 添加CSRF头
                 },
                 body: JSON.stringify({
-                    user_input: message,
-                    agent_output: aiResponse
+                    'user_input': message,
+                    'agent_output': aiResponse
                 })
             });
                 

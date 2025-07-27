@@ -19,14 +19,12 @@ class Group(models.Model):
 # 会话模型
 class Conversation(models.Model):
     title = models.CharField(max_length=200)
-    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='conversations')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='conversations', null=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    
 
 # 对话模型
 class Dialogue(models.Model):
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='dialogues')
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
     content = models.TextField()
     timestamp = models.DateTimeField(default=timezone.now)
     reply = models.TextField(blank=True)
