@@ -1,120 +1,134 @@
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import TokenAuthentication
+from django.http import StreamingHttpResponse
 from cozepy import Coze, TokenAuth, Message, ChatStatus, MessageContentType, ChatEventType, COZE_CN_BASE_URL
 from dotenv import load_dotenv
-import requests
 import os
 import json
-from django.http import JsonResponse, StreamingHttpResponse
 from django.db import transaction
 from app.models import Group, Conversation, Dialogue, User
 from django.utils import timezone
-# Create your views here.
+from rest_framework import serializers, status
+from app.serializers import ConversationSerializer, ConversationCreateSerializer
 
 load_dotenv(".env")
 
+class test(APIView):
+    authentication_classes = []
+    permission_classes = []
 
-def save_conversation(request):
-    try:
-        data = json.loads(request.body.decode('utf-8'))
+    def get(self, request):
+        """测试接口"""
+        return Response({"message": "Hello, this is a test endpoint!"}, status=status.HTTP_200_OK)
+
+class SaveConversation(APIView):
+    authentication_classes = []  # 允许匿名访问
+    permission_classes = []
+
+    def post(self, request):
+        """保存对话内容，支持新对话创建和已有对话更新"""
+        # 验证必需字段
+        user_input = request.data.get('user_input')
+        agent_output = request.data.get('agent_output')
         
-        # 校验必要字段
-        required_fields = ['user_id', 'content']
-        if not all(field in data for field in required_fields):
-            return JsonResponse({"status": "error", "message": "缺少必要字段（user_id/content）"}, status=400)
-
-        with transaction.atomic():
-            # 获取或创建会话（优先使用现有会话）
-            conversation_id = data.get('conversation_id')
-            if conversation_id:
-                # 验证会话所有权
-                conversation = Conversation.objects.get(
-                    id=conversation_id,
-                    user_id=data['user_id']
+        if not user_input or not agent_output:
+            return Response(
+                {"error": "Both user_input and agent_output are required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        conversation_id = request.data.get('conversation_id')
+        user_id = request.session['user_id']
+        user = User.objects.get(id=user_id)
+        
+        try:
+            with transaction.atomic():
+                # 处理对话（新对话或已有对话）
+                if conversation_id:
+                    # 继续现有对话
+                    conversation = Conversation.objects.get(id=conversation_id)
+                    created = False
+                else:
+                    # 创建新对话：使用用户输入的前20字符作为标题
+                    title = request.data.get('title') or user_input[:20] + "..."
+                    conversation = Conversation.objects.create(
+                        user=user,
+                        title=title
+                    )
+                    created = True
+                
+                # 保存对话内容
+                Dialogue.objects.create(
+                    conversation=conversation,
+                    content=user_input,
+                    reply=agent_output
                 )
-                created = False
-            else:
-                # 创建新会话
-                conversation = Conversation.objects.create(
-                    user_id=data['user_id'],
-                    title=data.get('title', f"新会话 {timezone.now().strftime('%m-%d %H:%M')}")
-                )
-                created = True
-
-            # 创建对话记录
-            Dialogue.objects.create(
-                conversation=conversation,
-                content=data['content'],
-                reply=data.get('reply', '')
+            
+            return Response({
+                "status": "success",
+                "conversation_id": conversation.id,
+                "title": conversation.title,
+                "new_conversation": created
+            }, status=status.HTTP_201_CREATED)
+        
+        except Conversation.DoesNotExist:
+            return Response(
+                {"error": "Conversation not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-        return JsonResponse({
-            "status": "success",
-            "conversation_id": conversation.id,
-            "new_conversation": created
-        })
+class CozeProxyAPI(APIView):
+    authentication_classes = []
+    permission_classes = []
 
-    except User.DoesNotExist:
-        return JsonResponse({"status": "error", "message": "用户不存在"}, status=404)
-    except Conversation.DoesNotExist:
-        return JsonResponse({"status": "error", "message": "会话不存在或无权访问"}, status=403)
-    except Exception as e:
-        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+    def post(self, request):
+        """Coze 代理接口（流式响应）"""
+        # 参数验证
+        message = request.data.get('message')
+        conversation_id = request.data.get('conversation_id')
+        
+        if not message:
+            return Response({"error": "Message content required"}, status=status.HTTP_400_BAD_REQUEST)
 
-def coze_proxy(request):
-    if request.method == 'POST':
+        # 初始化 Coze 客户端
+        coze_api_token = os.getenv('COZE_API_TOKEN')
+        bot_id = os.getenv("BOTID")
+        
+        if not all([coze_api_token, bot_id]):
+            return Response({"error": "Service configuration error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
         try:
-            # 获取用户输入
-            user_message = request.POST.get('message')
-            if not user_message:
-                return JsonResponse({"error": "消息内容不能为空"}, status=400)
-            
-            # 初始化Coze客户端
-            coze_api_token = os.getenv('COZE_API_TOKEN')
-            if not coze_api_token:
-                return JsonResponse({"error": "未配置COZE_API_TOKEN"}, status=500)
-            
             coze = Coze(
                 auth=TokenAuth(token=coze_api_token),
                 base_url=COZE_CN_BASE_URL
             )
-            
-            # 获取会话ID（支持多轮对话）
-            conversation_id = request.session.get('conversation_id')
-            bot_id = os.getenv("BOTID")
-            if not bot_id:
-                return JsonResponse({"error": "未配置BOTID"}, status=500)
-            
-            # 构建消息体
-            additional_messages = [Message.build_user_question_text(user_message)]
-            
-            # 调用流式API
+
+            # 流式对话处理
             events = coze.chat.stream(
                 bot_id=bot_id,
-                user_id="user123",  # 建议替换为真实用户ID
+                user_id=str(request.user.id),  # 使用真实用户ID
                 conversation_id=conversation_id,
-                additional_messages=additional_messages,
+                additional_messages=[Message.build_user_question_text(message)],
                 auto_save_history=False
             )
-            
-            # 流式响应生成器
-            def generate():
-                new_conv_id = None
+
+            def event_stream():
                 for event in events:
                     if event.event == ChatEventType.CONVERSATION_MESSAGE_DELTA:
                         yield event.message.content
-                    elif event.event == ChatEventType.CONVERSATION_CHAT_COMPLETED:
-                        new_conv_id = event.chat.conversation_id
-                
-                # 保存最新会话ID
-                if new_conv_id:
-                    request.session['conversation_id'] = new_conv_id
-                    request.session.save()
-            
+
             return StreamingHttpResponse(
-                generate(),
-                content_type='text/event-stream'
+                event_stream(),
+                content_type='text/event-stream',
+                status=status.HTTP_200_OK
             )
-        
+
         except Exception as e:
-            return JsonResponse({"error": str(e)}, status=500)
-    
-    return JsonResponse({"error": "仅支持POST请求"}, status=400)
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

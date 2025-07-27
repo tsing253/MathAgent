@@ -17,11 +17,12 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path, include
-from app import frontend_views
+from app.backend_views import test
 
 urlpatterns = [
     # path("admin/", admin.site.urls),
-    path('', include('app.frontend_urls')),
     path('api/', include('app.backend_urls')),
+    path('test/', test.as_view(), name='test_endpoint'),
+    path('', include('app.frontend_urls')),
 ]
 
