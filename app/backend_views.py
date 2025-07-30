@@ -1,12 +1,9 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.authentication import TokenAuthentication
 from django.http import StreamingHttpResponse
 from cozepy import Coze, TokenAuth, Message, ChatStatus, MessageContentType, ChatEventType, COZE_CN_BASE_URL
 from dotenv import load_dotenv
 import os
-import json
 from django.db import transaction
 from app.models import Group, Conversation, Dialogue, User
 from django.utils import timezone
