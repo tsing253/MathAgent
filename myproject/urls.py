@@ -16,13 +16,35 @@ Including another URLconf
 """
 
 from django.contrib import admin
-from django.urls import path, include
-from app.backend_views import test
+from django.urls import path, include, re_path
+from app.backend_views import TestView
+from rest_framework import permissions
+from drf_yasg.views import get_schema_view
+from drf_yasg import openapi
+
+# 创建 Swagger 文档视图
+schema_view = get_schema_view(
+    openapi.Info(
+        title="Math Agent API",
+        default_version='v1',
+        description="Math Agent 后端 API 文档",
+        terms_of_service="https://www.yourapp.com/terms/",
+        contact=openapi.Contact(email="contact@mathagent.com"),
+        license=openapi.License(name="BSD License"),
+    ),
+    public=True,
+    permission_classes=(permissions.AllowAny,),
+)
 
 urlpatterns = [
-    # path("admin/", admin.site.urls),
+    path('admin/', admin.site.urls),
     path('api/', include('app.backend_urls')),
-    path('test/', test.as_view(), name='test_endpoint'),
+    path('test/', TestView.as_view(), name='test_endpoint'),
     path('', include('app.frontend_urls')),
+    
+    # Swagger 文档 URL
+    path('swagger<format>/', schema_view.without_ui(cache_timeout=0), name='schema-json'),
+    path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+    path('docs/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
 ]
 

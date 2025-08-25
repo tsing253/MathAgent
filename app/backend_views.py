@@ -1,105 +1,182 @@
+from rest_framework import viewsets, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
 from django.http import StreamingHttpResponse
-from cozepy import Coze, TokenAuth, Message, ChatStatus, MessageContentType, ChatEventType, COZE_CN_BASE_URL
+from django.shortcuts import get_object_or_404
 from dotenv import load_dotenv
+from cozepy import Coze, TokenAuth, Message, ChatStatus, MessageContentType, ChatEventType, COZE_CN_BASE_URL
+
+from app.models import User, Group, Conversation, Dialogue
+from app.serializers import (
+    UserSerializer, GroupSerializer, ConversationSerializer,
+    ConversationCreateSerializer, DialogueSerializer, DialogueCreateSerializer
+)
+
 import os
-from django.db import transaction
-from app.models import Group, Conversation, Dialogue, User
-from django.utils import timezone
-from rest_framework import serializers, status
-from app.serializers import ConversationSerializer, ConversationCreateSerializer
 
 load_dotenv(".env")
 
-class test(APIView):
-    authentication_classes = []
+class UserViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    用户管理 API
+    
+    list:
+    获取所有用户列表
+    * 需要认证
+    * 返回用户基本信息
+    
+    retrieve:
+    获取特定用户详情
+    * 需要认证
+    * 返回用户完整信息
+    """
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+
+class GroupViewSet(viewsets.ModelViewSet):
+    """
+    群组管理 API
+    
+    list:
+    获取所有群组列表
+    * 需要认证
+    * 返回群组及其成员信息
+    
+    create:
+    创建新群组
+    * 需要认证
+    * 可以指定群组名称、描述和初始成员
+    
+    retrieve:
+    获取特定群组详情
+    * 需要认证
+    * 返回群组完整信息，包括成员列表
+    
+    update:
+    更新群组信息
+    * 需要认证
+    * 可以修改群组名称、描述等
+    
+    delete:
+    删除群组
+    * 需要认证
+    * 将同时删除相关的会话记录
+    """
+    queryset = Group.objects.all()
+    serializer_class = GroupSerializer
+    permission_classes = [IsAuthenticated]
+
+    @action(detail=True, methods=['post'])
+    def add_member(self, request, pk=None):
+        """添加群组成员"""
+        group = self.get_object()
+        user_id = request.data.get('user_id')
+        if not user_id:
+            return Response({"error": "需要提供用户ID"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            user = User.objects.get(id=user_id)
+            group.members.add(user)
+            return Response({"status": "success"})
+        except User.DoesNotExist:
+            return Response({"error": "用户不存在"}, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=True, methods=['post'])
+    def remove_member(self, request, pk=None):
+        """移除群组成员"""
+        group = self.get_object()
+        user_id = request.data.get('user_id')
+        if not user_id:
+            return Response({"error": "需要提供用户ID"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            user = User.objects.get(id=user_id)
+            group.members.remove(user)
+            return Response({"status": "success"})
+        except User.DoesNotExist:
+            return Response({"error": "用户不存在"}, status=status.HTTP_404_NOT_FOUND)
+
+class ConversationViewSet(viewsets.ModelViewSet):
+    """
+    对话管理视图集
+    提供对话的CRUD操作
+    """
+    serializer_class = ConversationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """获取用户相关的对话列表"""
+        return Conversation.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        """创建对话时自动关联当前用户"""
+        serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=['get'])
+    def dialogues(self, request, pk=None):
+        """获取特定对话的所有对话内容"""
+        conversation = self.get_object()
+        dialogues = conversation.dialogues.all().order_by('timestamp')
+        serializer = DialogueSerializer(dialogues, many=True)
+        return Response(serializer.data)
+
+class DialogueViewSet(viewsets.ModelViewSet):
+    """
+    对话内容管理视图集
+    提供对话内容的CRUD操作
+    """
+    serializer_class = DialogueSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """获取特定对话的内容"""
+        conversation_id = self.kwargs.get('conversation_pk')
+        return Dialogue.objects.filter(
+            conversation_id=conversation_id,
+            conversation__user=self.request.user
+        )
+
+    def perform_create(self, serializer):
+        """创建对话内容时关联到对话"""
+        conversation_id = self.kwargs.get('conversation_pk')
+        conversation = get_object_or_404(Conversation, id=conversation_id)
+        serializer.save(conversation=conversation)
+
+class TestView(APIView):
+    """测试接口"""
     permission_classes = []
 
     def get(self, request):
-        """测试接口"""
-        return Response({"message": "Hello, this is a test endpoint!"}, status=status.HTTP_200_OK)
-
-class SaveConversation(APIView):
-    authentication_classes = []  # 允许匿名访问
-    permission_classes = []
-
-    def post(self, request):
-        """保存对话内容，支持新对话创建和已有对话更新"""
-        # 验证必需字段
-        user_input = request.data.get('user_input')
-        agent_output = request.data.get('agent_output')
-        
-        if not user_input or not agent_output:
-            return Response(
-                {"error": "Both user_input and agent_output are required"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        conversation_id = request.data.get('conversation_id')
-        user_id = request.session['user_id']
-        user = User.objects.get(id=user_id)
-        
-        try:
-            with transaction.atomic():
-                # 处理对话（新对话或已有对话）
-                if conversation_id:
-                    # 继续现有对话
-                    conversation = Conversation.objects.get(id=conversation_id)
-                    created = False
-                else:
-                    # 创建新对话：使用用户输入的前20字符作为标题
-                    title = request.data.get('title') or user_input[:20] + "..."
-                    conversation = Conversation.objects.create(
-                        user=user,
-                        title=title
-                    )
-                    created = True
-                
-                # 保存对话内容
-                Dialogue.objects.create(
-                    conversation=conversation,
-                    content=user_input,
-                    reply=agent_output
-                )
-            
-            return Response({
-                "status": "success",
-                "conversation_id": conversation.id,
-                "title": conversation.title,
-                "new_conversation": created
-            }, status=status.HTTP_201_CREATED)
-        
-        except Conversation.DoesNotExist:
-            return Response(
-                {"error": "Conversation not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        except Exception as e:
-            return Response(
-                {"error": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        return Response({
+            "message": "Hello, this is a test endpoint!",
+            "api_version": "1.0"
+        }, status=status.HTTP_200_OK)
 
 class CozeProxyAPI(APIView):
-    authentication_classes = []
-    permission_classes = []
+    """Coze AI代理接口"""
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        """Coze 代理接口（流式响应）"""
-        # 参数验证
+        """处理AI对话请求（流式响应）"""
         message = request.data.get('message')
         conversation_id = request.data.get('conversation_id')
         
         if not message:
-            return Response({"error": "Message content required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                "error": "Message content required"
+            }, status=status.HTTP_400_BAD_REQUEST)
 
-        # 初始化 Coze 客户端
+        # 初始化Coze客户端
         coze_api_token = os.getenv('COZE_API_TOKEN')
         bot_id = os.getenv("BOTID")
         
         if not all([coze_api_token, bot_id]):
-            return Response({"error": "Service configuration error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({
+                "error": "Service configuration error"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         try:
             coze = Coze(
@@ -107,10 +184,10 @@ class CozeProxyAPI(APIView):
                 base_url=COZE_CN_BASE_URL
             )
 
-            # 流式对话处理
+            # 处理流式对话
             events = coze.chat.stream(
                 bot_id=bot_id,
-                user_id=str(request.user.id),  # 使用真实用户ID
+                user_id=str(request.user.id),
                 conversation_id=conversation_id,
                 additional_messages=[Message.build_user_question_text(message)],
                 auto_save_history=False
@@ -123,9 +200,10 @@ class CozeProxyAPI(APIView):
 
             return StreamingHttpResponse(
                 event_stream(),
-                content_type='text/event-stream',
-                status=status.HTTP_200_OK
+                content_type='text/event-stream'
             )
 
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({
+                "error": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

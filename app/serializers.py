@@ -1,19 +1,41 @@
-from rest_framework import serializers, status
-from app.models import Conversation, Dialogue
+from rest_framework import serializers
+from app.models import User, Group, Conversation, Dialogue
 
-class ConversationSerializer(serializers.ModelSerializer):
+class UserSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Conversation
-        fields = ['id', 'title', 'created_at']
-        read_only_fields = ['created_at']
+        model = User
+        fields = ['id', 'username', 'name', 'role']
+        read_only_fields = ['id']
+
+class GroupSerializer(serializers.ModelSerializer):
+    members = UserSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = Group
+        fields = ['id', 'name', 'description', 'members', 'created_at']
+        read_only_fields = ['id', 'created_at']
 
 class DialogueSerializer(serializers.ModelSerializer):
     class Meta:
         model = Dialogue
-        fields = ['content', 'reply', 'created_at']
-        read_only_fields = ['created_at']
+        fields = ['id', 'content', 'reply', 'timestamp']
+        read_only_fields = ['id', 'timestamp']
 
-class ConversationCreateSerializer(serializers.Serializer):
-    content = serializers.CharField(required=True)
-    title = serializers.CharField(required=False)
-    conversation_id = serializers.CharField(required=False)
+class ConversationSerializer(serializers.ModelSerializer):
+    dialogues = DialogueSerializer(many=True, read_only=True)
+    user = UserSerializer(read_only=True)
+    
+    class Meta:
+        model = Conversation
+        fields = ['id', 'title', 'user', 'dialogues', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+class ConversationCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Conversation
+        fields = ['title']
+
+class DialogueCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Dialogue
+        fields = ['content', 'reply']
